@@ -6,6 +6,9 @@
     "description": "View non-truncated parameters through the REDCap EM Log Browser.",
 
     "prefix": "emlog_param_viewer",
+
+    "documentation": "https://yale-redcap.github.io/emlog-param-viewer/",
+    
     "authors": [
         {
             "name": "Peter Charpentier",
@@ -21,8 +24,8 @@
 
     "versions":[
         {
-            "version": "0.0.0",
-            "version-date": "2026-01-08",
+            "version": "0.0.1",
+            "version-date": "2026-01-10",
             "version-change-summary": "initial development version"
         }
     ],
