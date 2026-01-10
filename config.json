@@ -1,0 +1,47 @@
+{
+    "name": "EM Log Parameter Viewer",
+
+    "namespace": "Yale\\EMLogParamViewer",
+
+    "description": "View non-truncated parameters through the REDCap EM Log Browser.",
+
+    "prefix": "emlog_param_viewer",
+    "authors": [
+        {
+            "name": "Peter Charpentier",
+            "email": "redcap@yale.edu",
+            "role": "geezer dev",
+            "institution": "Yale University"
+        }
+    ],
+
+    "super-users-only": false,
+
+    "enable-every-page-hooks-on-system-pages": true,
+
+    "versions":[
+        {
+            "version": "0.0.0",
+            "version-date": "2026-01-08",
+            "version-change-summary": "initial development version"
+        }
+    ],
+
+    "project-settings": [
+    ],
+
+    "links": {
+    },
+
+    "enable-ajax-logging": false,
+
+    "auth-ajax-actions":[
+    ],
+
+    "compatibility": {
+        "php-version-min": "8.1",
+        "redcap-version-min": "14.0.0"
+    },
+
+    "framework-version": 16
+}
