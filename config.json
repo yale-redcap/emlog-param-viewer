@@ -24,6 +24,11 @@
 
     "versions":[
         {
+            "version": "0.0.2",
+            "version-date": "2026-01-10",
+            "version-change-summary": "README updated"
+        },
+        {
             "version": "0.0.1",
             "version-date": "2026-01-10",
             "version-change-summary": "initial development version"
