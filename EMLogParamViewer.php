@@ -155,7 +155,7 @@ class EMLogParamViewer extends \ExternalModules\AbstractExternalModule
 
                 let dlgId = '';
 
-                let title = '';
+                let title = 'Log Entry Parameter Value';
 
                 //response.data.record = 'fooDeluxe'; // for testing
 
@@ -164,16 +164,12 @@ class EMLogParamViewer extends \ExternalModules\AbstractExternalModule
                 if ( response.status !== 'success' ){
 
                     dlgId = `log_id-unknown-param-${EMLPV.logData.param_name}`;
-
                     content = response.status_message;
-
-                    title = 'Error retrieving log parameter: ' + EMLPV.logData.param_name;
                 }
                 else {
 
                     dlgId = `log_id-${response.data.log_id}-param-${response.data.param_name}`;
                     content = response.data.param_value;
-                    title = response.data.param_name;
                 }
 
                 // wrap the content in a scrolling element to help with sizing
@@ -246,8 +242,11 @@ class EMLogParamViewer extends \ExternalModules\AbstractExternalModule
                     html += `<tr><td>user</td><td>${logData.user_name}</td></tr>`;
                 }
 
-                // row K: message
+                // row K-1: message
                 html += `<tr><td>message</td><td>${logData.message}</td></tr>`;
+
+                // row K: param_name
+                html += `<tr><td>parameter</td><td><strong>${logData.param_name}</strong></td></tr>`;
         
 
                 html += '</tbody></table>';

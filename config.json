@@ -24,6 +24,11 @@
 
     "versions":[
         {
+            "version": "0.0.3",
+            "version-date": "2026-01-11",
+            "version-change-summary": "EM Log Parameter Viewer improvements"
+        },
+        {
             "version": "0.0.2",
             "version-date": "2026-01-10",
             "version-change-summary": "README updated"
