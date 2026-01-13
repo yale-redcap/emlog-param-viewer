@@ -18,14 +18,14 @@ You must have permissions sufficient to manage external modules to access this E
 
 Open the 'View Logs' link on the **External Modules** panel, either on the Control Center page or on any project page. You will see a screen something like the following:  
 
-<img src="emlpv00.png" width="800px" /> 
+<img src="./images/emlpv00.png" width="800px" /> 
 
 Click on any ```Show Parameters``` button to open a ```Log Entry Parameters``` dialog. You will see a slightly modified user interface, that will allow you to click on any displayed value.  
 
-<img src="emlpv01.png" width="800px" />  
+<img src="./images/emlpv01.png" width="800px" />  
 
 Clicking on a displayed value on the enhanced Log Entry Parameters dialog will open a new dialog (below) that will display the complete value of the selected log parameter, along with other information about the log record. The parameter content is displayed in a scrolling container.
 
-<img src="emlpv02.png" width="800px" />
+<img src="./images/emlpv02.png" width="800px" />
 
 
