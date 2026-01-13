@@ -24,6 +24,11 @@
 
     "versions":[
         {
+            "version": "0.0.4",
+            "version-date": "2026-01-13",
+            "version-change-summary": "Message viewer added. Code cleanup."
+        },
+        {
             "version": "0.0.3",
             "version-date": "2026-01-11",
             "version-change-summary": "EM Log Parameter Viewer improvements"

@@ -22,7 +22,7 @@ function execRequest( $request ){
      * Can be updated using output from listNamespaceFunctions()
      */
     $function_registry = [
-        'fetchLogParameterValue'
+        'fetchLogItemValue'
     ];
 
     $fnIndex = array_search( trim($request), $function_registry );
@@ -47,7 +47,7 @@ function execRequest( $request ){
  * (4) If multiple matches are found, return an error indicating multiple matches
  * (5) If no matches are found, return an error indicating no matches
  */
-function fetchLogParameterValue(){
+function fetchLogItemValue(){
     global $module;
 
     $logData = [
@@ -59,6 +59,7 @@ function fetchLogParameterValue(){
         'user_name' => $_POST['user_name'] ?? '',
         'param_name' => $_POST['param_name'] ?? '',
         'param_value' => $_POST['param_value'] ?? '',
+        'item_type' => $_POST['item_type'] ?? 'message'
     ];
 
     /**
@@ -73,7 +74,7 @@ function fetchLogParameterValue(){
      * Then we can look for a match on message and param_value in the results.
      * These will be partial matches for truncated strings.
      */
-
+/*
     $sql = "
 SELECT prm.name as param_name, prm.`value` as param_value, log.* 
 FROM redcap_external_modules_log_parameters prm
@@ -81,21 +82,36 @@ INNER JOIN redcap_external_modules_log log
 ON prm.log_id=log.log_id
 WHERE prm.`name`=? AND log.timestamp=?
     ";
+*/
+    $qselect = 'SELECT log.*';
+    
+    $qfrom = 'FROM redcap_external_modules_log log';
 
-    // Always have param_name and timestamp 
-    $qparams = [
-        $logData['param_name'],
-        $logData['timestamp']
-    ];
+    $qwhere=' WHERE log.timestamp=?';
+
+    $qparams = [ $logData['timestamp'] ];
+
+    // item_type defaults to 'message'
+    if ( $logData['item_type'] === 'parameter' ){
+
+        $qselect .= ', prm.`name` as param_name, prm.`value` as param_value';
+
+        $qfrom .= ' INNER JOIN redcap_external_modules_log_parameters prm ON prm.log_id=log.log_id';
+
+        $qwhere .= ' AND prm.`name`=?';
+
+        $qparams[] = $logData['param_name'];
+    }
+
 
     // project_id is provided in the log display?
     if ( $logData['project_id'] !== '' && is_numeric( $logData['project_id'] ) ){
 
-        $sql .= " AND log.project_id=?";
+        $qwhere .= " AND log.project_id=?";
         $qparams[] = $logData['project_id'];
-    } else {
+    //} else {
 
-        $sql .= " AND log.project_id IS NULL";
+    //    $qwhere .= " AND log.project_id IS NULL";
     }
 
     // user_name is provided in the log display?
@@ -107,12 +123,12 @@ WHERE prm.`name`=? AND log.timestamp=?
 
         if ( $ui_id && is_numeric( $ui_id ) ){
 
-            $sql .= " AND log.ui_id=?";
+            $qwhere .= " AND log.ui_id=?";
             $qparams[] = $ui_id;
         }
     } else {
 
-        $sql .= " AND log.ui_id IS NULL";
+        $qwhere .= " AND log.ui_id IS NULL";
     }
 
     // module_name is provided in the log display?
@@ -124,13 +140,15 @@ WHERE prm.`name`=? AND log.timestamp=?
 
         if ( $external_module_id && is_numeric( $external_module_id ) ){
 
-            $sql .= " AND log.external_module_id=?";
+            $qwhere .= " AND log.external_module_id=?";
             $qparams[] = $external_module_id;
         }
     } else {
 
-        $sql .= " AND log.external_module_id IS NULL";
+        $qwhere .= " AND log.external_module_id IS NULL";
     }
+
+    $sql = $qselect . "\n" . $qfrom . "\n" . $qwhere;
 
     $results = $module->query( $sql, $qparams );
 
@@ -167,6 +185,7 @@ WHERE prm.`name`=? AND log.timestamp=?
 
     $status = "fail";
     $matches = []; // array of matching rows from the db
+    $debug = [];
 
     /**
      * Now determine a match based on message and param_value.
@@ -188,18 +207,18 @@ WHERE prm.`name`=? AND log.timestamp=?
         $matches = $rows;
     }
     elseif ( count( $rows ) > 1 ){
-        $debug = [];
+
         foreach ( $rows as $row ){
 
             $debug[] = [
                 'log_message' => $logData['message'],
                 'row_message' => $row['message'],
-                'log_param_value' => $logData['param_value'],
-                'row_param_value' => $row['param_value']
+                'log_param_value' => $logData['param_name'],
+                'row_param_value' => $row['param_name']
             ];
 
             $match_message = $module->truncatedStringMatch( $logData['message'], $row['message'] );
-            $match_value = $module->truncatedStringMatch( $logData['param_value'], $row['param_value'] );
+            $match_value = $module->truncatedStringMatch( $logData['param_name'], $row['param_name'] );
             if ( $match_message && $match_value ){
 
                 $matches[] = $row;
@@ -217,6 +236,7 @@ WHERE prm.`name`=? AND log.timestamp=?
 
         // reformat JSON value if applicable, to make it more readable in the viewer
         $matches[0]['param_value'] = $module->prettyPrintJsonIfValid($matches[0]['param_value']);
+        $matches[0]['message'] = $module->prettyPrintJsonIfValid($matches[0]['message']);
 
         $data = $module->escape( $matches[0] );
     }
@@ -232,6 +252,9 @@ WHERE prm.`name`=? AND log.timestamp=?
     return json_encode( [
         'status' => $status, // success|fail
         'status_message' => $status_message, // human-readable message. If fail, indicates reason.
-        'data' => $data // the matched row, or null
+        'data' => $data, // the matched row, or null
+        'sql' => $sql,
+        'qparams' => $qparams,
+        'debug' => $debug ?? null
     ] );
 }

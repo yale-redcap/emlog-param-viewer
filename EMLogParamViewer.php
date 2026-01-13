@@ -23,21 +23,24 @@ class EMLogParamViewer extends \ExternalModules\AbstractExternalModule
 
         <style>
 
-            table.log-parameters tr > td:nth-child(2) {
+            table.log-parameters tr > td:nth-child(2),
+            table#DataTables_Table_0 tr > td.message-column {
                 cursor: pointer;
                 /*text-decoration: underline dotted;*/
             }
 
-            table.log-parameters tr > td:nth-child(2):hover {
+            table.log-parameters tr > td:nth-child(2):hover,
+            table#DataTables_Table_0 tr > td.message-column:hover {
                 text-decoration: underline;
                 text-decoration-style: solid;
                 text-underline-offset: 2px;
             }
-
+            /*
             table.log-parameters tr:nth-child(1) > th:nth-child(2)::after {
                 content: " (click to view full value)";
                 color: gray;
             }
+            */
 
             .emlpv-scrolling-container {
 
@@ -103,229 +106,15 @@ class EMLogParamViewer extends \ExternalModules\AbstractExternalModule
         </style>
 
         <script>
-
             const EMLPV = {
-                serviceUrl: '<?php echo $serviceUrl; ?>',
+                serviceUrl: '<?php echo $serviceUrl ?>',
                 logData: null,
+                projectId: <?php echo $str_project_id ?>,
             };
-
-            EMLPV.ajax = function( request, data, callback ) {
-
-                data.request = request;
-                data.redcap_csrf_token = redcap_csrf_token;
-
-                $.ajax({
-                    url: EMLPV.serviceUrl,
-                    type: "POST",
-                    dataType: "json",                     
-                    data: data
-                })
-                .done( callback )
-                .fail(function(jqXHR, textStatus, errorThrown) 
-                {
-
-                    // Glean what we can from textStatus
-                    let msg;
-                    if (textStatus === "parsererror") msg = "Error parsing the server response.";
-                    else if (textStatus === "timeout") msg = "The request timed out. Please try again.";
-                    else if (textStatus === "abort") msg = "The request was cancelled.";
-                    else msg = "A network/server (AJAX) error occurred.";
-
-                    msg += `\n\nError details: ${errorThrown || 'Unknown error'}`;
-
-                    alert(msg);
-
-                    console.error('AJAX request failed:', textStatus, errorThrown, jqXHR);
-                });
-            };
-
-            /**
-             * Callback for fetchLogParameterValue AJAX request.
-             * Creates and displays a dialog with the full parameter value.
-             * Gets a little hacky to deal with dialog sizing and scrolling.
-             */
-            EMLPV.fetchLogParameterValueCallback = function( response ){
-
-                console.log('fetchLogParameterValue response:', response);
-
-                // destroy any leftover dialog content divs to avoid DOM clutter
-                $('div[id^="log_id-"][id*="-param-"]').remove();
-
-                let content = '';
-
-                let dlgId = '';
-
-                let title = 'Log Entry Parameter Value';
-
-                //response.data.record = 'fooDeluxe'; // for testing
-
-                let tableHtml = EMLPV.logInfoTableHtml( response.data );
-
-                if ( response.status !== 'success' ){
-
-                    dlgId = `log_id-unknown-param-${EMLPV.logData.param_name}`;
-                    content = response.status_message;
-                }
-                else {
-
-                    dlgId = `log_id-${response.data.log_id}-param-${response.data.param_name}`;
-                    content = response.data.param_value;
-                }
-
-                // wrap the content in a scrolling element to help with sizing
-                content = '<pre class="emlpv-scrolling-container" style="white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere;">' 
-                    + content 
-                    + '</pre>';
-
-                simpleDialog(
-                    tableHtml + content, // inner HTML content
-                    title, // title
-                    dlgId, // content wrapper ID
-                    1200 // width
-                );
-
-                /**
-                 * The jQuery UI dialog, at least as implemented by the simpleDialog() function in REDCap,
-                 * initially sizes the dialog based on the content length, potentially exceeding the viewport.
-                 * 
-                 * Therefore, the content is wrapped in a scrolling pre/div, with a max height set (400px).
-                 * The dialog does not stretch vertically beyond the viewport, and the content wrapper is sized accordingly.
-                 * 
-                 * However, the resizing behavior does not automatically adjust the content area to fit within the dialog 
-                 * in such a way as to avoid nested scrollbars.
-                 * 
-                 * Here we add a resize handler to adjust the content area to fit properly within the dialog
-                 * whenever the dialog wrapper is resized. 
-                 * 
-                 * As a further measure, the content wrapper div is set to not scroll, in case my content resizing arithmetic fails.
-                 */
-                
-                const $contentWrapper = $(`div#${dlgId}`);
-                const $dialog = $contentWrapper.closest('.ui-dialog');
-                const $innerContentWrapper = $contentWrapper.find('div, pre').first();
-
-                $contentWrapper.addClass('emlpv-no-scrolling-container'); // disable outer div scrolling
-
-                $dialog.on('resize', function() {
-                    const tableHt = $contentWrapper.find('table.emlpv-log-info-table').outerHeight(true) || 0;
-                    const contentWrapperHt = $contentWrapper.innerHeight(); // seems to resize correctly, so we fit the content inside it
-                    const contentHt = contentWrapperHt - tableHt - 30; // padding/margin/fudge factor
-                    $innerContentWrapper.css('max-height', contentHt + 'px');
-                });
-
-                $dialog.trigger('resize'); // initial sizing
-            };
-
-            EMLPV.logInfoTableHtml = function( logData ){
-
-                let html = '<table id="emlpv-log-info-table" class="emlpv-log-info-table"><tbody>';
-
-                // row 1: log_id
-                html += `<tr><td>log_id</td><td>${logData.log_id}</td></tr>`;
-                // row 2: timestamp
-                html += `<tr><td>timestamp</td><td>${logData.timestamp}</td></tr>`;
-                // row 3: module_name
-                html += `<tr><td>module</td><td>${logData.module_name}</td></tr>`;
-
-                // add a row for project_id if available
-                if ( logData.project_id !== null && parseInt(logData.project_id) > 0 ){
-                    html += `<tr><td>project_id</td><td>${logData.project_id}</td></tr>`;
-                }
-
-                // add a row for record if available
-                if ( logData.record && logData.record !== 'undefined' ){
-                    html += `<tr><td>record</td><td>${logData.record}</td></tr>`;
-                }
-
-                // add a row for user_name if available
-                if ( logData.user_name && logData.user_name !== 'undefined' ){
-                    html += `<tr><td>user</td><td>${logData.user_name}</td></tr>`;
-                }
-
-                // row K-1: message
-                html += `<tr><td>message</td><td>${logData.message}</td></tr>`;
-
-                // row K: param_name
-                html += `<tr><td>parameter</td><td><strong>${logData.param_name}</strong></td></tr>`;
-        
-
-                html += '</tbody></table>';
-
-                return html;
-            };
-
-            $( function () {
-
-                //console.log('EMLogParamViewer active on logs.php');
-
-                /**
-                 * Click handler for "Show Parameters" buttons.
-                 * 
-                 * When a 'show parameters' button is clicked, the log data from that row is stored
-                 * in EMLPV.logData for use by the parameter value click handler.
-                 */
-
-                 $(document)
-                    .off('click.emlpv.show-parameters', 'table tr td button.show-parameters')
-                    .on('click.emlpv.show-parameters', 'table tr td button.show-parameters', function(e) {
-
-                    const button = $(this)[0]; // using the DOM element directly in this handler
-
-                    // bail if the row does not have 6 or 7 columns (not a log entry row)
-                    const cells = button.closest('tr').querySelectorAll('td');
-                    if (cells.length !== 6 && cells.length !== 7) return;
-
-                    if (cells.length === 7) {
-                        EMLPV.logData = {
-                            timestamp: cells[0].innerText,
-                            module_name: cells[1].innerText,
-                            project_id: cells[2].innerText,
-                            record: cells[3].innerText,
-                            message: cells[4].innerText,
-                            user_name: cells[5].innerText,
-                            param_name: null,
-                            param_value: null
-                        };
-                    } else {
-                        EMLPV.logData = {
-                            timestamp: cells[0].innerText,
-                            module_name: cells[1].innerText,
-                            project_id: <?php echo $str_project_id ?>,
-                            record: cells[2].innerText,
-                            message: cells[3].innerText,
-                            user_name: cells[4].innerText,
-                            param_name: null,
-                            param_value: null
-                        };
-                    }
-                });
-
-                /**
-                 * Click handler for parameter value cells.
-                 * 
-                 * When a parameter value cell is clicked, an AJAX request is made to fetch the full
-                 * parameter value from the server, and display it in a new dialog.
-                 */
-
-                $(document)
-                    .off('click.emlpv.log-parameter', 'table.log-parameters tr td:nth-child(2)')
-                    .on('click.emlpv.log-parameter', 'table.log-parameters tr td:nth-child(2)', function(e) {
-
-                    const td = $(this)[0]; // using the DOM element directly in this handler
-
-                    const cells = td.closest('tr').querySelectorAll('td'); // get all TDs in the row
-
-                    EMLPV.logData.param_name = cells[0].innerText; // first TD is param_name
-                    EMLPV.logData.param_value = cells[1].innerText; // second TD is param_value (possibly truncated)
-
-                    EMLPV.ajax( 'fetchLogParameterValue', 
-                        EMLPV.logData, 
-                        EMLPV.fetchLogParameterValueCallback 
-                    );
-                });
-            });
-
         </script>
+
+        <script src="<?php echo $this->getUrl('js/emlpv.js'); ?>"></script>
+
         <?php
     }
 
@@ -343,8 +132,12 @@ class EMLogParamViewer extends \ExternalModules\AbstractExternalModule
      * 
      * Credit: GPT 5.2
      */
-    function normalize_for_compare(string $s, array $opt = []): string
+    function normalize_for_compare($s, array $opt = []): string
     {
+        if (!is_string($s)) {
+            return '';
+        }
+    
         $opt = array_merge([
             'trim' => true,
             'normalize_line_endings' => true,
@@ -495,10 +288,10 @@ class EMLogParamViewer extends \ExternalModules\AbstractExternalModule
      * @param string $input 
      * @return null|string 
      */
-    public function prettyPrintJsonIfValid(string $input): ?string
+    public function prettyPrintJsonIfValid($input): ?string
     {
         $trimmed = trim($input);
-        if ($trimmed === '') {
+        if ( !$trimmed ) {
             return $input;
         }
 
