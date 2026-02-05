@@ -1,20 +1,22 @@
 {
-    "name": "EM Log Parameter Viewer",
+    "name": "YES3 EM Log Parameter Viewer",
 
     "namespace": "Yale\\EMLogParamViewer",
 
-    "description": "View non-truncated parameters through the REDCap EM Log Browser.",
+    "description": "View non-truncated EM Log Messages and EM Log Parameters through the REDCap EM Log Browser.",
 
-    "prefix": "emlog_param_viewer",
+    "prefix": "yes3_emlog_param_viewer",
 
-    "documentation": "https://yale-redcap.github.io/emlog-param-viewer/",
+    "documentation": "https://yale-redcap.github.io/yes3-emlog-param-viewer/",
     
     "authors": [
         {
             "name": "Peter Charpentier",
             "email": "redcap@yale.edu",
-            "role": "geezer dev",
-            "institution": "Yale University"
+            "role": "geezer, dev",
+            "institution": "Yale University",
+            "company": "CRI Web Tools LLC",
+            "company_url": "https://criwebtools.com"
         }
     ],
 
@@ -23,6 +25,16 @@
     "enable-every-page-hooks-on-system-pages": true,
 
     "versions":[
+        {
+            "version": "0.1.0",
+            "version-date": "2026-02-05",
+            "version-change-summary": "Refactored for code clarity. First deployed version"
+        },
+        {
+            "version": "0.0.6",
+            "version-date": "2026-01-31",
+            "version-change-summary": "log_id pulled from DataTables."
+        },
         {
             "version": "0.0.5",
             "version-date": "2026-01-29",

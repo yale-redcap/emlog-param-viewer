@@ -1,10 +1,8 @@
 
 
+EMLPV.log_id = null;
 
-EMLPV.ajax = function( request, data, callback ) {
-
-    data.request = request;
-    data.redcap_csrf_token = redcap_csrf_token;
+EMLPV.ajax = function( data, callback ) {
 
     $.ajax({
         url: EMLPV.serviceUrl,
@@ -15,7 +13,6 @@ EMLPV.ajax = function( request, data, callback ) {
     .done( callback )
     .fail(function(jqXHR, textStatus, errorThrown) 
     {
-
         // Glean what we can from textStatus
         let msg;
         if (textStatus === "parsererror") msg = "Error parsing the server response.";
@@ -32,41 +29,28 @@ EMLPV.ajax = function( request, data, callback ) {
 };
 
 /**
- * Callback for fetchLogParameterValue AJAX request.
- * Creates and displays a dialog with the full parameter value.
+ * Generates and displays a dialog with the given content item (either a log message or a log parameter value).
  * 
- * @param {} response 
+ * @param {*} response              the AJAX response object    
+ * @param {*} content_item_name     either 'message' or 'param_name'
+ * @param {*} dialogTitle           the dialog title (currently 'Log Message' or 'Log Entry Parameter Value')
+ * @returns 
  */
-EMLPV.fetchLogParameterValueCallback = function( response ){
-
-    console.log('fetchLogParameterValue response:', response);
-
-    EMLPV.buildDialog( response, 'param_value', 'Log Entry Parameter Value' );
-}
-
-/**
- * Callback for fetchLogMessage AJAX request.
- * Creates and displays a dialog with the full log message.
- * 
- * @param {} response 
- */
-EMLPV.fetchLogMessageCallback = function( response ){
-
-    console.log('fetchLogMessage response:', response);
-
-    EMLPV.buildDialog( response, 'message', 'Log Message' );
-}
-
 EMLPV.buildDialog = function( response, content_item_name, dialogTitle ){
 
-    // destroy any leftover dialog content divs to avoid DOM clutter
+    if ( response.status !== 'success' ){
+
+        console.error(`Error fetching ${content_item_name}: ${response.status_message}`, response );
+        alert(`Error fetching ${content_item_name}.`);
+        return;
+    }
+
+    // destroy any leftover EMLPV dialog content divs to avoid DOM clutter
     $(`div[id^="emlpv-"]`).remove();
 
     let content = '';
 
     let dlgId = '';
-
-    //response.data.record = 'fooDeluxe'; // for testing
 
     let tableHtml = '';
     let title = dialogTitle;
@@ -78,11 +62,11 @@ EMLPV.buildDialog = function( response, content_item_name, dialogTitle ){
     }
     else {
 
-        dlgId = `emlpv-${response.data.log_id}-${response.data.content_item_name}`;
+        dlgId = `emlpv-${response.data.log_id}-${content_item_name}`;
         tableHtml = EMLPV.logInfoTableHtml( response.data, content_item_name );
         content = tableHtml 
         + '<pre class="emlpv-scrolling-container" style="white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere;">' 
-        + response.data[ content_item_name ]
+        + response.data[content_item_name]
         + '</pre>'
         ;
     }
@@ -98,7 +82,7 @@ EMLPV.buildDialog = function( response, content_item_name, dialogTitle ){
      * The jQuery UI dialog, at least as implemented by the simpleDialog() function in REDCap,
      * initially sizes the dialog based on the content length, potentially exceeding the viewport.
      * 
-     * Therefore, the content is wrapped in a scrolling pre/div, with a max height set (400px).
+     * Therefore, the content is wrapped in a scrolling element, with a max height set (400px).
      * The dialog does not stretch vertically beyond the viewport, and the content wrapper is sized accordingly.
      * 
      * However, the resizing behavior does not automatically adjust the content area to fit within the dialog 
@@ -126,6 +110,13 @@ EMLPV.buildDialog = function( response, content_item_name, dialogTitle ){
     $dialog.trigger('resize'); // initial sizing
 };
 
+/**
+ * The log info table HTML (the header for the dialog content).
+ * 
+ * @param {*} logData 
+ * @param {*} content_item_name 
+ * @returns 
+ */
 EMLPV.logInfoTableHtml = function( logData, content_item_name ){
 
     let html = '<table id="emlpv-log-info-table" class="emlpv-log-info-table"><tbody>';
@@ -161,61 +152,174 @@ EMLPV.logInfoTableHtml = function( logData, content_item_name ){
         html += `<tr><td>parameter</td><td><strong>${logData.param_name}</strong></td></tr>`;
     }
 
-
     html += '</tbody></table>';
 
     return html;
 };
 
 /**
- * Extract as much data as possible from the selected main table row.
+ * Sets EMLPV.log_id based on the table row containing the given element.
+ * Uses DataTables API to get the log_id from the hidden first column.
+ * Calculates the overall row index based on (1) the data-row-index attribute if present,
+ * or (2) the DataTables pagination controls and the row number within the current page.
  * 
- * @param {*} cells 
+ * @param {*} element 
  * @returns 
  */
-EMLPV.logDataFromRowCells = function( cells ){
-    
-    let logData = {
-        timestamp: cells[0].innerText,
-        module_name: cells[1].innerText,
-    };
+EMLPV.setLogIdFromElement = function( element ){
 
-    if (cells.length === 7) {
-        logData.project_id = cells[2].innerText;
-        logData.record = cells[3].innerText;
-        logData.message = cells[4].innerText;
-        logData.user_name = cells[5].innerText;
-    } else {
-        logData.project_id = null;
-        logData.record = cells[2].innerText;
-        logData.message = cells[3].innerText;
-        logData.user_name = cells[4].innerText;
+    const tr = element.closest('tr');
+
+    const table = tr.closest('table');
+
+    // FIRST ATTEMPT: use data-row-index attribute on the element
+
+    const rowIndexAttrib = element.getAttribute("data-row-index");
+
+    if (rowIndexAttrib !== null) {
+        const value = Number(rowIndexAttrib);
+        if (Number.isInteger(value)) {
+            EMLPV.log_id = $(table).DataTable().cell(value, 0).data() ?? null;
+            return  EMLPV.log_id;
+        }
     }
 
-    return logData;
+    // SECOND ATTEMPT: calculate the row index based on DataTables pagination controls
+
+    let dataTablesPageLength = 0;
+
+    let pageNumber = 1;
+
+    // The page length select element ("Show N entries").
+    // This appears to always be on the DOM, even for short lists, but just in case, we check for its existence.
+    const dataTablesPageLengthSelect = document.querySelector('div.dataTables_length select');
+
+    // Set the page length, defaulting to 0 if the select element is not found
+    if ( dataTablesPageLengthSelect ){
+        dataTablesPageLength = parseInt( dataTablesPageLengthSelect.value );
+    }
+
+    // fall back to 0 if invalid
+    if ( isNaN(dataTablesPageLength) || dataTablesPageLength < 0 ){
+        dataTablesPageLength = 0;
+    }
+
+    // calculate the current page number only if we have a valid page length
+    if ( dataTablesPageLength > 0 ){
+
+        // The page number input element ("Page J of K").
+        // If the list is too small for pagination, this element will be on the DOM, but not visible.
+        const pageNumberInput = document.querySelector('input.paginate_input[type=text]');
+
+        // if page number input element is on the DOM and is visible, get its value
+        if ( pageNumberInput && pageNumberInput.offsetParent !== null ){
+            pageNumber = parseInt( pageNumberInput.value );
+        }
+
+        // fall back to page 1 if invalid
+        if ( isNaN(pageNumber) || pageNumber < 1 ){
+            pageNumber = 1;
+        }
+    }
+
+    // row index within the table
+    const tr_row_number = Array.prototype.indexOf.call(tr.parentNode.children, tr);
+
+    // calculate the overall row index in the full dataset
+    const row_index = (pageNumber - 1) * dataTablesPageLength + tr_row_number;
+
+    // first column is log_id, although it is hidden from view
+    EMLPV.log_id = $(table).DataTable().cell(row_index, 0).data() ?? null;
+
+    return EMLPV.log_id;
 }
 
 $( function () {
 
+    const messageCellSelector           = 'div#external-module-logs-wrapper table tr td.message-column';
+    const showParametersButtonSelector  = 'div#external-module-logs-wrapper table tr td button.show-parameters';
+    const parameterValueCellSelector    = 'table.log-parameters tr td:nth-child(2)'; // first TD is param_name, second is param_value
+
     /**
-     * Click handler for "Show Parameters" buttons.
+     * set the tooltip for log message cells
+     */
+    $(document)
+        .off('mouseenter.emlpv.log-message-tooltip', messageCellSelector)
+        .on('mouseenter.emlpv.log-message-tooltip', messageCellSelector, function(e) {
+
+            const $el = $(this);
+
+            // if tooltip already initialized, do nothing
+            if ( $el.data('emlpvTooltipInit') ){
+                return;
+            }
+
+            $el.data('emlpvTooltipInit', true )
+               .attr('title', "Click to view the full content of the em log message." )
+            ;
+        });
+
+    /**
+     * set the tooltip for parameter value cells
+     */
+    $(document)
+        .off('mouseenter.emlpv.log-parameter-tooltip', parameterValueCellSelector)
+        .on('mouseenter.emlpv.log-parameter-tooltip', parameterValueCellSelector, function(e) {
+
+            const $el = $(this);
+
+            const param_name = $el.siblings('td').first().text();
+
+            // if tooltip already initialized, do nothing
+            if ( $el.data('emlpvTooltipInit') ){
+                return;
+            }
+
+            $el.data('emlpvTooltipInit', true )
+               .attr('title', `Click to view the full content of the em log parameter '${param_name}'.` )
+            ;
+        });
+
+    /**
+     * Click handler for log message cells.
      * 
-     * When a 'show parameters' button is clicked, the log data from that row is stored
-     * in EMLPV.logData for use by the parameter value click handler.
+     * When a log message cell is clicked, an AJAX request is made to fetch the full
+     * log message from the server, and display it in a new dialog.
      */
 
     $(document)
-        .off('click.emlpv.show-parameters', 'table tr td button.show-parameters')
-        .on('click.emlpv.show-parameters', 'table tr td button.show-parameters', function(e) {
+        .off('click.emlpv.log-message', messageCellSelector)
+        .on('click.emlpv.log-message', messageCellSelector, function(e) {
 
-        const button = $(this)[0]; // using the DOM element directly in this handler
+        if ( !EMLPV.setLogIdFromElement( this ) ) {
+            console.error('Could not determine log_id for log message cell click.');
+            return;
+        }
 
-        // bail if the row does not have 6 or 7 columns (not a log entry row)
-        const cells = button.closest('tr').querySelectorAll('td');
-        if (cells.length !== 6 && cells.length !== 7) return;
+        EMLPV.ajax( 
+           {
+                log_id: EMLPV.log_id,
+                item_type: 'message',
+           },
+           (response) => EMLPV.buildDialog( response, 'message', 'Log Message' )
+        );
+    });
 
-        // extract log data from the row cells, for use by parameter value click handler
-        EMLPV.logData = EMLPV.logDataFromRowCells(cells);
+    /**
+     * Click handler for "Show Parameters" buttons.
+     * 
+     * When a 'show parameters' button is clicked, the log id from that row is stored
+     * in EMLPV.log_id for use by the parameter value click handler.
+     */
+
+    $(document)
+        .off('click.emlpv.show-parameters', showParametersButtonSelector)
+        .on('click.emlpv.show-parameters', showParametersButtonSelector, function(e) {
+
+        if ( !EMLPV.setLogIdFromElement( this ) ) {
+            console.error('Could not determine log_id for Show Parameters button click.');
+            return;
+        }
     });
 
     /**
@@ -226,37 +330,25 @@ $( function () {
      */
 
     $(document)
-        .off('click.emlpv.log-parameter', 'table.log-parameters tr td:nth-child(2)')
-        .on('click.emlpv.log-parameter', 'table.log-parameters tr td:nth-child(2)', function(e) {
+        .off('click.emlpv.log-parameter', parameterValueCellSelector)
+        .on('click.emlpv.log-parameter', parameterValueCellSelector, function(e) {
 
-        const td = $(this)[0]; // using the DOM element directly in this handler
+        if ( EMLPV.log_id === null ) {
+            console.error('Could not determine log_id for log parameter cell click.');
+            return;
+        }
 
-        const cells = td.closest('tr').querySelectorAll('td'); // get all TDs in the row
+        const cells = this.closest('tr').querySelectorAll('td'); // get all TDs in the row
 
-        EMLPV.logData.param_name = cells[0].innerText; // first TD is param_name
-        EMLPV.logData.param_value = cells[1].innerText; // second TD is param_value (possibly truncated)
-        EMLPV.logData.item_type = 'parameter';
+        const param_name = cells[0].innerText; // first TD is param_name
 
-        EMLPV.ajax( 'fetchLogItemValue', 
-            EMLPV.logData, 
-            EMLPV.fetchLogParameterValueCallback 
-        );
-    });
-
-    $(document)
-        .off('click.emlpv.log-message', 'table#DataTables_Table_0 tr td.message-column')
-        .on('click.emlpv.log-message', 'table#DataTables_Table_0 tr td.message-column', function(e) {
-
-        const td = $(this)[0]; // using the DOM element directly in this handler
-
-        const cells = td.closest('tr').querySelectorAll('td'); // get all TDs in the row
-
-        EMLPV.logData = EMLPV.logDataFromRowCells(cells);
-        EMLPV.logData.item_type = 'message';
-
-        EMLPV.ajax( 'fetchLogItemValue', 
-            EMLPV.logData, 
-            EMLPV.fetchLogMessageCallback 
+        EMLPV.ajax( 
+            {
+                log_id: EMLPV.log_id,
+                item_type: 'parameter',
+                param_name: param_name
+            },
+            (response) => EMLPV.buildDialog( response, 'param_value', 'Log Entry Parameter Value' )
         );
     });
 });
