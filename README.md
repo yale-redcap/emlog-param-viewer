@@ -30,14 +30,15 @@ Click on any ```Show Parameters``` button to open a ```Log Entry Parameters``` d
 
 Peter Charpentier, 28 January 2026.  
 
-<img src="./images/emlpv00.png" width="800px" />  
-
 Screen shot 1. The REDCap EM Log View user interface with clickable Message link.  
 
-<img src="./images/emlpv01.png" width="800px" />  
-
+<img src="./images/emlpv00.png" width="800px" />   
+  
 Screen shot 2. The REDCap EM Log Entry Parameters user interface with clickable Parameter Value link.    
+
+<img src="./images/emlpv01.png" width="800px" />
+
+Screen shot 3. The full content of an EM Log Parameter Value.  
 
 <img src="./images/emlpv02.png" width="800px" />    
 
-Screen shot 3. The full content of an EM Log Parameter Value.  
